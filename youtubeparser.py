@@ -11,14 +11,13 @@ import re
 
 
 
-
-file = open("credentials.txt", "r")
-
-creds = file.readlines()
-
-file.close()
+with open("credentials.txt", "r") as creds:
+    creds = file.readlines()
 
 songs = []
+titles = []
+artist = []
+date = []
 
 #standard praw stuff
 
@@ -34,61 +33,101 @@ thread_id = reddit.submission(id = creds[5])
 
 comments = thread_id.comments
 
-file = open("output.txt", "w")
+with open("output.txt", "w") as file:
 
-#looking through comments
-for top_level_comment in comments:
-
-    body = top_level_comment.body
-    for line in body.split("\n"):
-        if 'yout' in line: #making sure it only parses youtube links
-            print(10*'-') 
-            #dodgy way to split the links and to get the youtube link  
-            line = line.replace('*','').replace('[','|').replace(']','|').replace('(','|').replace(')','|').replace(' ','|').replace(':', '|',1)
-            line = line.strip().strip('|') #deleting spaces and | from the start and the end
-            line = line.split("|")
-            # print(line) #testing
-            print(line[-1].strip())
-            songs.append(line[-1])
+    #looking through comments
+    for top_level_comment in comments:
+        flag = True
+        flag2 = True
+        flag3 = True
+        body = top_level_comment.body
+        body = body.encode('utf-8')
+        if "yout" in body:
+            print(10*'-') #testing
+            for line in body.split("\n"):
+                if not line:
+                    continue
+                if 'yout' in line: #making sure it only parses youtube links
+                    #dodgy way to split the links and to get the youtube link  
+                    line = line.replace('[','|').replace(']','|').replace('(','|').replace(')','|').replace(' ','|').replace(':', '|', 1)
+                    line = line.strip().strip('|') #deleting spaces and | from the start and the end
+                    line = line.split("|")
+                    # print(line) #testing
+                    print(line[-1].strip()) #testing
+                    songs.append(line[-1])
+                
+                    file.write("%s\n" % line[-1].strip())
+                    continue
+
+                temp = line.strip()
+                temp = temp.replace(':', '|', 1).replace('*','')
+                # temp = temp.strip("|")
+                temp = temp.strip()
+                temp = temp.split('|')
+                temp = temp[-1].strip()
+                # print(temp) #testing
             
-            file.write("%s\n" % line[-1].strip())
+                if flag:
+                    titles.append(temp) 
+                    flag = False
+                    continue
+                elif flag2:
+                    artist.append(temp)
+                    flag2 = False
+                elif len(temp) <= 5 & len(temp) > 3 & flag3:
+                    date.append(temp)
+                    flag3 = False
+
+            if flag3:
+                date += '-'
 
 
 
 
-#generating the playlists
-file.write("\n ----------------- \nAuto generated playlists\n")
 
-domain = "https://www.youtube.com/watch_videos?video_ids=" #template link for playlists. Maximum 50 per playlist
-count = 0
-songlist = []
+    #generating the playlists
+    file.write("\n ----------------- \nAuto generated playlists\n")
 
-for i in songs: 
-    i = i.replace('=', ' ').replace('/', ' ') #replacing '=' and '/' so they can be splitted and the id can be parsed.
-    i = i.strip()
-    i = i.split()
-    print(i[-1])
-    songlist.append(i[-1])
+    domain = "https://www.youtube.com/watch_videos?video_ids=" #template link for playlists. Maximum 50 per playlist
+    count = 0
+    songlist = []
 
-tempdomain = domain
+    for i in songs: 
+        i = i.replace('=', ' ').replace('/', ' ') #replacing '=' and '/' so they can be splitted and the id can be parsed.
+        i = i.strip()
+        i = i.split()
+        # print(i[-1]) #testing
+        songlist.append(i[-1])
 
-for i in songlist: #appending video_id to the template
+    tempdomain = domain
     
-    tempdomain += i
-    count += 1
+    for i in songlist: #appending video_id to the template
+    
+        tempdomain += i
+        count += 1
 
-    if count == 50:
-        file.write("%s\n" % tempdomain.strip())
-        print(tempdomain)
-        tempdomain = domain
-        count = 0
-    else:
-        tempdomain += ","
+        if count == 50:
+            file.write("%s\n" % tempdomain.strip())
+            # print(tempdomain) #testing
+            tempdomain = domain
+            count = 0
+        else:
+            tempdomain += ","
+    
+    if tempdomain[-1] == ",":
+       tempdomain = tempdomain[:-1]     
+    
+    file.write("%s\n" % tempdomain.strip())
 
-if tempdomain[-1] == ",":
-   tempdomain = tempdomain[:-1]     
-   
-file.write("%s\n" % tempdomain.strip())
 
-file.close()            
-            
+#dirty way to make an csv
+with open("file.csv", "w") as fd:
+
+    fd.write("Title,Artist,Date,Link\n")
+
+
+
+    for a,b,c,d in zip(titles, artist, date, songs):
+ 
+        fd.write("%s,%s,%s,%s\n" % (a, b, c, d))
+
